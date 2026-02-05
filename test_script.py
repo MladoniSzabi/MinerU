@@ -75,6 +75,6 @@ if __name__ == "__main__":
 
     ])
 
-    with open("/home/szabi/work/emission/pdf/output.pdf", "rb") as f:
+    with open("test.pdf", "rb") as f:
         data = f.read()
     json_document, images = mineru.infer(data)
