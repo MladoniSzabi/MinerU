@@ -1,5 +1,7 @@
 models/
 .venv/
+build
+mineru.egg-info
 
 *.tar
 *.tar.gz
