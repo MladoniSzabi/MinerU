@@ -13,9 +13,11 @@ from ..version import __version__
 from .common import do_parse, read_fn, pdf_suffixes, image_suffixes
 
 
-backends = ['pipeline', 'vlm-transformers', 'vlm-vllm-engine', 'vlm-http-client']
+backends = ['pipeline', 'vlm-transformers',
+            'vlm-vllm-engine', 'vlm-http-client']
 if is_mac_os_version_supported():
     backends.append("vlm-mlx-engine")
+
 
 @click.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True))
 @click.pass_context
@@ -148,8 +150,6 @@ if is_mac_os_version_supported():
     """,
     default='huggingface',
 )
-
-
 def main(
         ctx,
         input_path, output_dir, method, backend, lang, server_url,
@@ -175,7 +175,8 @@ def main(
                 return round(get_vram(get_device_mode()))
             return 1
         if os.getenv('MINERU_VIRTUAL_VRAM_SIZE', None) is None:
-            os.environ['MINERU_VIRTUAL_VRAM_SIZE']= str(get_virtual_vram_size())
+            os.environ['MINERU_VIRTUAL_VRAM_SIZE'] = str(
+                get_virtual_vram_size())
 
         if os.getenv('MINERU_MODEL_SOURCE', None) is None:
             os.environ['MINERU_MODEL_SOURCE'] = model_source
@@ -218,6 +219,7 @@ def main(
         parse_doc(doc_path_list)
     else:
         parse_doc([Path(input_path)])
+
 
 if __name__ == '__main__':
     main()

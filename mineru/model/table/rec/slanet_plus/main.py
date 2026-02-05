@@ -58,7 +58,8 @@ class RapidTable:
         # 适配slanet-plus模型输出的box缩放还原
         cell_bboxes = self.adapt_slanet_plus(img, cell_bboxes)
 
-        pred_html = self.table_matcher(pred_structures, cell_bboxes, dt_boxes, rec_res)
+        pred_html = self.table_matcher(
+            pred_structures, cell_bboxes, dt_boxes, rec_res)
 
         # 过滤掉占位的bbox
         mask = ~np.all(cell_bboxes == 0, axis=1)
@@ -102,7 +103,8 @@ class RapidTable:
             mask = ~np.all(cell_bboxes == 0, axis=1)
             cell_bboxes = cell_bboxes[mask]
 
-            logic_points = self.table_matcher.decode_logic_points(pred_structures)
+            logic_points = self.table_matcher.decode_logic_points(
+                pred_structures)
             result = RapidTableOutput(pred_html, cell_bboxes, logic_points, 0)
             output_results.append(result)
 
@@ -147,13 +149,9 @@ def escape_html(input_string):
 
 
 class RapidTableModel(object):
-    def __init__(self, ocr_engine):
-        slanet_plus_model_path = os.path.join(
-            auto_download_and_get_model_root_path(ModelPath.slanet_plus),
-            ModelPath.slanet_plus,
-        )
+    def __init__(self, model_path, ocr_engine):
         input_args = RapidTableInput(
-            model_type="slanet_plus", model_path=slanet_plus_model_path
+            model_type="slanet_plus", model_path=model_path
         )
         self.table_model = RapidTable(input_args)
         self.ocr_engine = ocr_engine
@@ -172,7 +170,8 @@ class RapidTableModel(object):
 
         if ocr_result:
             try:
-                table_results = self.table_model.predict(np.asarray(image), ocr_result)
+                table_results = self.table_model.predict(
+                    np.asarray(image), ocr_result)
                 html_code = table_results.pred_html
                 table_cell_bboxes = table_results.cell_bboxes
                 logic_points = table_results.logic_points
@@ -194,7 +193,8 @@ class RapidTableModel(object):
         with tqdm(total=len(not_none_table_res_list), desc="Table-wireless Predict") as pbar:
             for index in range(0, len(not_none_table_res_list), batch_size):
                 batch_imgs = [
-                    cv2.cvtColor(np.asarray(not_none_table_res_list[i]["table_img"]), cv2.COLOR_RGB2BGR)
+                    cv2.cvtColor(np.asarray(
+                        not_none_table_res_list[i]["table_img"]), cv2.COLOR_RGB2BGR)
                     for i in range(index, min(index + batch_size, len(not_none_table_res_list)))
                 ]
                 batch_ocrs = [
@@ -206,7 +206,8 @@ class RapidTableModel(object):
                 )
                 for i, result in enumerate(results):
                     if result.pred_html:
-                        not_none_table_res_list[index + i]['table_res']['html'] = result.pred_html
+                        not_none_table_res_list[index +
+                                                i]['table_res']['html'] = result.pred_html
 
                 # 更新进度条
                 pbar.update(len(results))

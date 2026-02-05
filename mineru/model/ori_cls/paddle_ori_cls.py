@@ -14,10 +14,8 @@ from mineru.utils.models_download_utils import auto_download_and_get_model_root_
 
 
 class PaddleOrientationClsModel:
-    def __init__(self, ocr_engine):
-        self.sess = onnxruntime.InferenceSession(
-            os.path.join(auto_download_and_get_model_root_path(ModelPath.paddle_orientation_classification), ModelPath.paddle_orientation_classification)
-        )
+    def __init__(self, model_path, ocr_engine):
+        self.sess = onnxruntime.InferenceSession(model_path)
         self.ocr_engine = ocr_engine
         self.less_length = 256
         self.cw, self.ch = 224, 224
@@ -127,7 +125,7 @@ class PaddleOrientationClsModel:
         """
         batches = []
         for i in range(0, len(img_list), batch_size):
-            batch = img_list[i : min(i + batch_size, len(img_list))]
+            batch = img_list[i: min(i + batch_size, len(img_list))]
             batches.append(batch)
         return batches
 
@@ -188,14 +186,17 @@ class PaddleOrientationClsModel:
         resolution_groups = defaultdict(list)
         for img in imgs:
             # RGB图像转换BGR
-            bgr_img: np.ndarray = cv2.cvtColor(np.asarray(img["table_img"]), cv2.COLOR_RGB2BGR)
+            bgr_img: np.ndarray = cv2.cvtColor(
+                np.asarray(img["table_img"]), cv2.COLOR_RGB2BGR)
             img["table_img_bgr"] = bgr_img
             img_height, img_width = bgr_img.shape[:2]
             img_aspect_ratio = img_height / img_width if img_width > 0 else 1.0
             if img_aspect_ratio > 1.2:
                 # 归一化尺寸到RESOLUTION_GROUP_STRIDE的倍数
-                normalized_h = ((img_height + RESOLUTION_GROUP_STRIDE) // RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE  # 向上取整到RESOLUTION_GROUP_STRIDE的倍数
-                normalized_w = ((img_width + RESOLUTION_GROUP_STRIDE) // RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE
+                normalized_h = ((img_height + RESOLUTION_GROUP_STRIDE) // RESOLUTION_GROUP_STRIDE) * \
+                    RESOLUTION_GROUP_STRIDE  # 向上取整到RESOLUTION_GROUP_STRIDE的倍数
+                normalized_w = ((img_width + RESOLUTION_GROUP_STRIDE) //
+                                RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE
                 group_key = (normalized_h, normalized_w)
                 resolution_groups[group_key].append(img)
 
@@ -205,8 +206,10 @@ class PaddleOrientationClsModel:
             # 计算目标尺寸（组内最大尺寸，向上取整到RESOLUTION_GROUP_STRIDE的倍数）
             max_h = max(img["table_img_bgr"].shape[0] for img in group_imgs)
             max_w = max(img["table_img_bgr"].shape[1] for img in group_imgs)
-            target_h = ((max_h + RESOLUTION_GROUP_STRIDE - 1) // RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE
-            target_w = ((max_w + RESOLUTION_GROUP_STRIDE - 1) // RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE
+            target_h = ((max_h + RESOLUTION_GROUP_STRIDE - 1) //
+                        RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE
+            target_w = ((max_w + RESOLUTION_GROUP_STRIDE - 1) //
+                        RESOLUTION_GROUP_STRIDE) * RESOLUTION_GROUP_STRIDE
 
             # 对所有图像进行padding到统一尺寸
             batch_images = []
@@ -214,7 +217,8 @@ class PaddleOrientationClsModel:
                 bgr_img = img["table_img_bgr"]
                 h, w = bgr_img.shape[:2]
                 # 创建目标尺寸的白色背景
-                padded_img = np.ones((target_h, target_w, 3), dtype=np.uint8) * 255
+                padded_img = np.ones(
+                    (target_h, target_w, 3), dtype=np.uint8) * 255
                 # 将原图像粘贴到左上角
                 padded_img[:h, :w] = bgr_img
                 batch_images.append(padded_img)

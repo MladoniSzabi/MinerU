@@ -2,6 +2,7 @@ import os
 
 import torch
 from loguru import logger
+from transformers import LayoutLMv3ForTokenClassification
 
 from .model_list import AtomicModel
 from ...model.layout.doclayoutyolo import DocLayoutYOLOModel
@@ -23,7 +24,8 @@ if MFR_MODEL.lower() in ['true', '1', 'yes']:
 elif MFR_MODEL.lower() in ['false', '0', 'no']:
     MFR_MODEL = "unimernet_small"
 else:
-    logger.warning(f"Invalid MINERU_FORMULA_CH_SUPPORT value: {MFR_MODEL}, set to default 'False'")
+    logger.warning(
+        f"Invalid MINERU_FORMULA_CH_SUPPORT value: {MFR_MODEL}, set to default 'False'")
     MFR_MODEL = "unimernet_small"
 
 
@@ -40,33 +42,17 @@ def img_orientation_cls_model_init():
     return cls_model
 
 
-def table_cls_model_init():
-    return PaddleTableClsModel()
+def table_cls_model_init(model_path):
+    return PaddleTableClsModel(model_path)
 
 
-def wired_table_model_init(lang=None):
-    atom_model_manager = AtomModelSingleton()
-    ocr_engine = atom_model_manager.get_atom_model(
-        atom_model_name=AtomicModel.OCR,
-        det_db_box_thresh=0.5,
-        det_db_unclip_ratio=1.6,
-        lang=lang,
-        enable_merge_det_boxes=False
-    )
-    table_model = UnetTableModel(ocr_engine)
+def wired_table_model_init(model_path, ocr_engine, lang=None):
+    table_model = UnetTableModel(model_path, ocr_engine)
     return table_model
 
 
-def wireless_table_model_init(lang=None):
-    atom_model_manager = AtomModelSingleton()
-    ocr_engine = atom_model_manager.get_atom_model(
-        atom_model_name=AtomicModel.OCR,
-        det_db_box_thresh=0.5,
-        det_db_unclip_ratio=1.6,
-        lang=lang,
-        enable_merge_det_boxes=False
-    )
-    table_model = RapidTableModel(ocr_engine)
+def wireless_table_model_init(model_path, ocr_engine, lang=None):
+    table_model = RapidTableModel(model_path, ocr_engine)
     return table_model
 
 
@@ -94,13 +80,17 @@ def doclayout_yolo_model_init(weight, device='cpu'):
     model = DocLayoutYOLOModel(weight, device)
     return model
 
-def ocr_model_init(det_db_box_thresh=0.3,
-                   lang=None,
-                   det_db_unclip_ratio=1.8,
-                   enable_merge_det_boxes=True
-                   ):
+
+def ocr_model_init(
+    weights_folder,
+    det_db_box_thresh=0.3,
+    lang=None,
+    det_db_unclip_ratio=1.8,
+    enable_merge_det_boxes=True
+):
     if lang is not None and lang != '':
         model = PytorchPaddleOCR(
+            weights_folder=weights_folder,
             det_db_box_thresh=det_db_box_thresh,
             lang=lang,
             use_dilation=True,
@@ -109,11 +99,37 @@ def ocr_model_init(det_db_box_thresh=0.3,
         )
     else:
         model = PytorchPaddleOCR(
+            weights_folder=weights_folder,
             det_db_box_thresh=det_db_box_thresh,
             use_dilation=True,
             det_db_unclip_ratio=det_db_unclip_ratio,
             enable_merge_det_boxes=enable_merge_det_boxes,
         )
+    return model
+
+
+def layout_reader_model_init(layoutreader_model_dir, device_name):
+    device = torch.device(device_name)
+    bf_16_support = False
+    if device_name.startswith("cuda"):
+        if torch.cuda.get_device_properties(device).major >= 8:
+            bf_16_support = True
+    elif device_name.startswith("mps"):
+        bf_16_support = True
+
+    # 检测modelscope的缓存目录是否存在
+    if os.path.exists(layoutreader_model_dir):
+        model = LayoutLMv3ForTokenClassification.from_pretrained(
+            layoutreader_model_dir
+        )
+    else:
+        raise Exception(
+            "Directory " + layoutreader_model_dir + " does not exist")
+    if bf_16_support:
+        model.to(device).eval().bfloat16()
+    else:
+        model.to(device).eval()
+
     return model
 
 
@@ -147,8 +163,11 @@ class AtomModelSingleton:
             key = atom_model_name
 
         if key not in self._models:
-            self._models[key] = atom_model_init(model_name=atom_model_name, **kwargs)
+            print(key, kwargs)
+            self._models[key] = atom_model_init(
+                model_name=atom_model_name, **kwargs)
         return self._models[key]
+
 
 def atom_model_init(model_name: str, **kwargs):
     atom_model = None
@@ -186,6 +205,8 @@ def atom_model_init(model_name: str, **kwargs):
         atom_model = table_cls_model_init()
     elif model_name == AtomicModel.ImgOrientationCls:
         atom_model = img_orientation_cls_model_init()
+    elif model_name == AtomicModel.LayoutReader:
+        atom_model = layout_reader_model_init(kwargs.get("layout_reader_dir"))
     else:
         logger.error('model name not allow')
         exit(1)
@@ -215,7 +236,8 @@ class MineruPipelineModel:
             self.mfd_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.MFD,
                 mfd_weights=str(
-                    os.path.join(auto_download_and_get_model_root_path(ModelPath.yolo_v8_mfd), ModelPath.yolo_v8_mfd)
+                    os.path.join(auto_download_and_get_model_root_path(
+                        ModelPath.yolo_v8_mfd), ModelPath.yolo_v8_mfd)
                 ),
                 device=self.device,
             )
@@ -231,7 +253,8 @@ class MineruPipelineModel:
 
             self.mfr_model = atom_model_manager.get_atom_model(
                 atom_model_name=AtomicModel.MFR,
-                mfr_weight_dir=str(os.path.join(auto_download_and_get_model_root_path(mfr_model_path), mfr_model_path)),
+                mfr_weight_dir=str(os.path.join(
+                    auto_download_and_get_model_root_path(mfr_model_path), mfr_model_path)),
                 device=self.device,
             )
 
@@ -239,7 +262,8 @@ class MineruPipelineModel:
         self.layout_model = atom_model_manager.get_atom_model(
             atom_model_name=AtomicModel.Layout,
             doclayout_yolo_weights=str(
-                os.path.join(auto_download_and_get_model_root_path(ModelPath.doclayout_yolo), ModelPath.doclayout_yolo)
+                os.path.join(auto_download_and_get_model_root_path(
+                    ModelPath.doclayout_yolo), ModelPath.doclayout_yolo)
             ),
             device=self.device,
         )

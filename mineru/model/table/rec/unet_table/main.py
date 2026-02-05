@@ -88,17 +88,22 @@ class WiredTableRecognition:
                     logi_points[idx_list],
                     time.perf_counter() - s,
                 )
-            cell_box_det_map, not_match_orc_boxes = match_ocr_cell(ocr_result, polygons)
+            cell_box_det_map, not_match_orc_boxes = match_ocr_cell(
+                ocr_result, polygons)
             # 如果有识别框没有ocr结果，直接进行rec补充
-            cell_box_det_map = self.fill_blank_rec(img, polygons, cell_box_det_map)
+            cell_box_det_map = self.fill_blank_rec(
+                img, polygons, cell_box_det_map)
             # 转换为中间格式，修正识别框坐标,将物理识别框，逻辑识别框，ocr识别框整合为dict，方便后续处理
-            t_rec_ocr_list = self.transform_res(cell_box_det_map, polygons, logi_points)
+            t_rec_ocr_list = self.transform_res(
+                cell_box_det_map, polygons, logi_points)
             # 将每个单元格中的ocr识别结果排序和同行合并，输出的html能完整保留文字的换行格式
             t_rec_ocr_list = self.sort_and_gather_ocr_res(t_rec_ocr_list)
 
-            logi_points = [t_box_ocr["t_logic_box"] for t_box_ocr in t_rec_ocr_list]
+            logi_points = [t_box_ocr["t_logic_box"]
+                           for t_box_ocr in t_rec_ocr_list]
             cell_box_det_map = {
-                i: [ocr_box_and_text[1] for ocr_box_and_text in t_box_ocr["t_ocr_res"]]
+                i: [ocr_box_and_text[1]
+                    for ocr_box_and_text in t_box_ocr["t_ocr_res"]]
                 for i, t_box_ocr in enumerate(t_rec_ocr_list)
             }
             pred_html = plot_html_table(logi_points, cell_box_det_map)
@@ -145,7 +150,8 @@ class WiredTableRecognition:
             _, sorted_idx = sorted_ocr_boxes(
                 [ocr_det[0] for ocr_det in dict_res["t_ocr_res"]], threhold=0.3
             )
-            dict_res["t_ocr_res"] = [dict_res["t_ocr_res"][i] for i in sorted_idx]
+            dict_res["t_ocr_res"] = [dict_res["t_ocr_res"][i]
+                                     for i in sorted_idx]
             dict_res["t_ocr_res"] = gather_ocr_list_by_row(
                 dict_res["t_ocr_res"], threhold=0.3
             )
@@ -183,7 +189,8 @@ class WiredTableRecognition:
                 logger.warning(f"No OCR engine provided for box {i}: {box}")
                 continue
             # 从img中截取对应的区域
-            x1, y1, x2, y2 = int(box[0][0])+1, int(box[0][1])+1, int(box[2][0])-1, int(box[2][1])-1
+            x1, y1, x2, y2 = int(box[0][0])+1, int(box[0][1]) + \
+                1, int(box[2][0])-1, int(box[2][1])-1
             if x1 >= x2 or y1 >= y2 or x1 < 0 or y1 < 0:
                 # logger.warning(f"Invalid box coordinates: {x1, y1, x2, y2}")
                 continue
@@ -214,11 +221,13 @@ class WiredTableRecognition:
             #         ocr_result[0].append(("", 0.0))
 
             if not ocr_result or not isinstance(ocr_result, list) or len(ocr_result) == 0:
-                logger.warning("OCR engine returned no results or invalid result for image crops.")
+                logger.warning(
+                    "OCR engine returned no results or invalid result for image crops.")
                 return cell_box_map
             ocr_res_list = ocr_result[0]
             if not isinstance(ocr_res_list, list) or len(ocr_res_list) != len(img_crop_list):
-                logger.warning("OCR result list length does not match image crop list length.")
+                logger.warning(
+                    "OCR result list length does not match image crop list length.")
                 return cell_box_map
             for j, ocr_res in enumerate(ocr_res_list):
                 img_crop_info_list[j].append(ocr_res)
@@ -227,7 +236,7 @@ class WiredTableRecognition:
                 # 处理ocr结果
                 ocr_text, ocr_score = ocr_res
                 # logger.debug(f"OCR result for box {i}: {ocr_text} with score {ocr_score}")
-                if ocr_score < 0.6 or ocr_text in ['1','口','■','（204号', '（20', '（2', '（2号', '（20号', '号', '（204']:
+                if ocr_score < 0.6 or ocr_text in ['1', '口', '■', '（204号', '（20', '（2', '（2号', '（20号', '号', '（204']:
                     # logger.warning(f"Low confidence OCR result for box {i}: {ocr_text} with score {ocr_score}")
                     box = sorted_polygons[i]
                     cell_box_map[i] = [[box, "", 0.1]]
@@ -255,10 +264,10 @@ def count_table_cells_physical(html_code):
 
 
 class UnetTableModel:
-    def __init__(self, ocr_engine):
-        model_path = os.path.join(auto_download_and_get_model_root_path(ModelPath.unet_structure), ModelPath.unet_structure)
+    def __init__(self, model_path, ocr_engine):
         wired_input_args = WiredTableInput(model_path=model_path)
-        self.wired_table_model = WiredTableRecognition(wired_input_args, ocr_engine)
+        self.wired_table_model = WiredTableRecognition(
+            wired_input_args, ocr_engine)
         self.ocr_engine = ocr_engine
 
     def predict(self, input_img, ocr_result, wireless_html_code):
@@ -309,11 +318,15 @@ class UnetTableModel:
             # logger.debug(f"wireless table ocr text count: {wireless_text_count}, wired table ocr text count: {wired_text_count}")
 
             # 使用HTML解析器计算空单元格数量
-            wireless_soup = BeautifulSoup(wireless_html_code, 'html.parser') if wireless_html_code else BeautifulSoup("", 'html.parser')
-            wired_soup = BeautifulSoup(wired_html_code, 'html.parser') if wired_html_code else BeautifulSoup("", 'html.parser')
+            wireless_soup = BeautifulSoup(
+                wireless_html_code, 'html.parser') if wireless_html_code else BeautifulSoup("", 'html.parser')
+            wired_soup = BeautifulSoup(
+                wired_html_code, 'html.parser') if wired_html_code else BeautifulSoup("", 'html.parser')
             # 计算空单元格数量(没有文本内容或只有空白字符)
-            wireless_blank_count = sum(1 for cell in wireless_soup.find_all(['td', 'th']) if not cell.text.strip())
-            wired_blank_count = sum(1 for cell in wired_soup.find_all(['td', 'th']) if not cell.text.strip())
+            wireless_blank_count = sum(1 for cell in wireless_soup.find_all([
+                                       'td', 'th']) if not cell.text.strip())
+            wired_blank_count = sum(1 for cell in wired_soup.find_all(
+                ['td', 'th']) if not cell.text.strip())
             # logger.debug(f"wireless table blank cell count: {wireless_blank_count}, wired table blank cell count: {wired_blank_count}")
 
             # 计算非空单元格数量
@@ -326,17 +339,21 @@ class UnetTableModel:
                 wired_table_scale = round(wired_non_blank_count ** 0.5)
                 # logger.debug(f"wireless non-blank cell count: {wireless_non_blank_count}, wired non-blank cell count: {wired_non_blank_count}, wired table scale: {wired_table_scale}")
                 # 如果无线表非空格的数量比有线表多一列或以上，需要切换到无线表
-                wired_scale_plus_2_cols = wired_non_blank_count + (wired_table_scale * 2)
-                wired_scale_squared_plus_2_rows = wired_table_scale * (wired_table_scale + 2)
+                wired_scale_plus_2_cols = wired_non_blank_count + \
+                    (wired_table_scale * 2)
+                wired_scale_squared_plus_2_rows = wired_table_scale * \
+                    (wired_table_scale + 2)
                 if (wireless_non_blank_count + 3) >= max(wired_scale_plus_2_cols, wired_scale_squared_plus_2_rows):
                     switch_flag = True
 
             # 判断是否使用无线表格模型的结果
             if (
                 switch_flag
-                or (0 <= gap_of_len <= 5 and wired_len <= round(wireless_len * 0.75))  # 两者相差不大但有线模型结果较少
+                # 两者相差不大但有线模型结果较少
+                or (0 <= gap_of_len <= 5 and wired_len <= round(wireless_len * 0.75))
                 or (gap_of_len == 0 and wired_len <= 4)  # 单元格数量完全相等且总量小于等于4
-                or (wired_text_count <= wireless_text_count * 0.6 and  wireless_text_count >=10) # 有线模型填入的文字明显少于无线模型
+                # 有线模型填入的文字明显少于无线模型
+                or (wired_text_count <= wireless_text_count * 0.6 and wireless_text_count >= 10)
             ):
                 # logger.debug("fall back to wireless table model")
                 html_code = wireless_html_code

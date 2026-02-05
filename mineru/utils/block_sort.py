@@ -10,15 +10,16 @@ from loguru import logger
 from mineru.utils.config_reader import get_device
 from mineru.utils.enum_class import BlockType, ModelPath
 from mineru.utils.models_download_utils import auto_download_and_get_model_root_path
+from mineru.backend.pipeline.model_init import AtomModelSingleton
 
 
 def sort_blocks_by_bbox(blocks, page_w, page_h, footnote_blocks):
-
     """获取所有line并计算正文line的高度"""
     line_height = get_line_height(blocks)
 
     """获取所有line并对line排序"""
-    sorted_bboxes = sort_lines_by_model(blocks, page_w, page_h, line_height, footnote_blocks)
+    sorted_bboxes = sort_lines_by_model(
+        blocks, page_w, page_h, line_height, footnote_blocks)
 
     """根据line的中位数算block的序列关系"""
     blocks = cal_block_index(blocks, sorted_bboxes)
@@ -58,7 +59,8 @@ def sort_lines_by_model(fix_blocks, page_w, page_h, line_height, footnote_blocks
     page_line_list = []
 
     def add_lines_to_block(b):
-        line_bboxes = insert_lines_into_block(b['bbox'], line_height, page_w, page_h)
+        line_bboxes = insert_lines_into_block(
+            b['bbox'], line_height, page_w, page_h)
         b['lines'] = []
         for line_bbox in line_bboxes:
             b['lines'].append({'bbox': line_bbox, 'spans': []})
@@ -168,7 +170,8 @@ def insert_lines_into_block(block_bbox, line_height, page_w, page_h):
         lines_positions = []
 
         for i in range(lines):
-            lines_positions.append([x0, current_y, x1, current_y + line_height])
+            lines_positions.append(
+                [x0, current_y, x1, current_y + line_height])
             current_y += line_height
         return lines_positions
 
@@ -177,38 +180,8 @@ def insert_lines_into_block(block_bbox, line_height, page_w, page_h):
 
 
 def model_init(model_name: str):
-    from transformers import LayoutLMv3ForTokenClassification
-    device_name = get_device()
-    device = torch.device(device_name)
-    bf_16_support = False
-    if device_name.startswith("cuda"):
-        if torch.cuda.get_device_properties(device).major >= 8:
-            bf_16_support = True
-    elif device_name.startswith("mps"):
-        bf_16_support = True
-
-    if model_name == 'layoutreader':
-        # 检测modelscope的缓存目录是否存在
-        layoutreader_model_dir = os.path.join(auto_download_and_get_model_root_path(ModelPath.layout_reader), ModelPath.layout_reader)
-        if os.path.exists(layoutreader_model_dir):
-            model = LayoutLMv3ForTokenClassification.from_pretrained(
-                layoutreader_model_dir
-            )
-        else:
-            logger.warning(
-                'local layoutreader model not exists, use online model from huggingface'
-            )
-            model = LayoutLMv3ForTokenClassification.from_pretrained(
-                'hantian/layoutreader'
-            )
-        if bf_16_support:
-            model.to(device).eval().bfloat16()
-        else:
-            model.to(device).eval()
-    else:
-        logger.error('model name not allow')
-        exit(1)
-    return model
+    atom_model_manager = AtomModelSingleton()
+    return atom_model_manager.get_atom_model(model_name)
 
 
 class ModelSingleton:
@@ -221,6 +194,7 @@ class ModelSingleton:
         return cls._instance
 
     def get_model(self, model_name: str):
+        print("Getting mode:", model_name)
         if model_name not in self._models:
             self._models[model_name] = model_init(model_name=model_name)
         return self._models[model_name]
@@ -231,7 +205,8 @@ def do_predict(boxes: List[List[int]], model) -> List[int]:
         boxes2inputs, parse_logits, prepare_inputs)
 
     with warnings.catch_warnings():
-        warnings.filterwarnings("ignore", category=FutureWarning, module="transformers")
+        warnings.filterwarnings(
+            "ignore", category=FutureWarning, module="transformers")
 
         inputs = boxes2inputs(boxes)
         inputs = prepare_inputs(inputs, model)
@@ -281,7 +256,8 @@ def cal_block_index(fix_blocks, sorted_bboxes):
         random_boxes = np.array(block_bboxes)
         np.random.shuffle(random_boxes)
         res = []
-        recursive_xy_cut(np.asarray(random_boxes).astype(int), np.arange(len(block_bboxes)), res)
+        recursive_xy_cut(np.asarray(random_boxes).astype(int),
+                         np.arange(len(block_bboxes)), res)
         assert len(res) == len(block_bboxes)
         sorted_boxes = random_boxes[np.array(res)].tolist()
 
@@ -318,10 +294,12 @@ def revert_group_blocks(blocks):
             new_blocks.append(block)
 
     for group_id, blocks in image_groups.items():
-        new_blocks.append(process_block_list(blocks, BlockType.IMAGE_BODY, BlockType.IMAGE))
+        new_blocks.append(process_block_list(
+            blocks, BlockType.IMAGE_BODY, BlockType.IMAGE))
 
     for group_id, blocks in table_groups.items():
-        new_blocks.append(process_block_list(blocks, BlockType.TABLE_BODY, BlockType.TABLE))
+        new_blocks.append(process_block_list(
+            blocks, BlockType.TABLE_BODY, BlockType.TABLE))
 
     return new_blocks
 
@@ -330,7 +308,8 @@ def process_block_list(blocks, body_type, block_type):
     indices = [block['index'] for block in blocks]
     median_index = statistics.median(indices)
 
-    body_bbox = next((block['bbox'] for block in blocks if block.get('type') == body_type), [])
+    body_bbox = next(
+        (block['bbox'] for block in blocks if block.get('type') == body_type), [])
 
     return {
         'type': block_type,

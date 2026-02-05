@@ -19,107 +19,107 @@ import argparse
 
 
 latin_lang = [
-        "af",
-        "az",
-        "bs",
-        "cs",
-        "cy",
-        "da",
-        "de",
-        "es",
-        "et",
-        "fr",
-        "ga",
-        "hr",
-        "hu",
-        "id",
-        "is",
-        "it",
-        "ku",
-        "la",
-        "lt",
-        "lv",
-        "mi",
-        "ms",
-        "mt",
-        "nl",
-        "no",
-        "oc",
-        "pi",
-        "pl",
-        "pt",
-        "ro",
-        "rs_latin",
-        "sk",
-        "sl",
-        "sq",
-        "sv",
-        "sw",
-        "tl",
-        "tr",
-        "uz",
-        "vi",
-        "french",
-        "german",
-        "fi",
-        "eu",
-        "gl",
-        "lb",
-        "rm",
-        "ca",
-        "qu",
+    "af",
+    "az",
+    "bs",
+    "cs",
+    "cy",
+    "da",
+    "de",
+    "es",
+    "et",
+    "fr",
+    "ga",
+    "hr",
+    "hu",
+    "id",
+    "is",
+    "it",
+    "ku",
+    "la",
+    "lt",
+    "lv",
+    "mi",
+    "ms",
+    "mt",
+    "nl",
+    "no",
+    "oc",
+    "pi",
+    "pl",
+    "pt",
+    "ro",
+    "rs_latin",
+    "sk",
+    "sl",
+    "sq",
+    "sv",
+    "sw",
+    "tl",
+    "tr",
+    "uz",
+    "vi",
+    "french",
+    "german",
+    "fi",
+    "eu",
+    "gl",
+    "lb",
+    "rm",
+    "ca",
+    "qu",
 ]
 arabic_lang = ["ar", "fa", "ug", "ur", "ps", "ku", "sd", "bal"]
 cyrillic_lang = [
-        "ru",
-        "rs_cyrillic",
-        "be",
-        "bg",
-        "uk",
-        "mn",
-        "abq",
-        "ady",
-        "kbd",
-        "ava",
-        "dar",
-        "inh",
-        "che",
-        "lbe",
-        "lez",
-        "tab",
-        "kk",
-        "ky",
-        "tg",
-        "mk",
-        "tt",
-        "cv",
-        "ba",
-        "mhr",
-        "mo",
-        "udm",
-        "kv",
-        "os",
-        "bua",
-        "xal",
-        "tyv",
-        "sah",
-        "kaa",
+    "ru",
+    "rs_cyrillic",
+    "be",
+    "bg",
+    "uk",
+    "mn",
+    "abq",
+    "ady",
+    "kbd",
+    "ava",
+    "dar",
+    "inh",
+    "che",
+    "lbe",
+    "lez",
+    "tab",
+    "kk",
+    "ky",
+    "tg",
+    "mk",
+    "tt",
+    "cv",
+    "ba",
+    "mhr",
+    "mo",
+    "udm",
+    "kv",
+    "os",
+    "bua",
+    "xal",
+    "tyv",
+    "sah",
+    "kaa",
 ]
 east_slavic_lang = ["ru", "be", "uk"]
 devanagari_lang = [
-        "hi",
-        "mr",
-        "ne",
-        "bh",
-        "mai",
-        "ang",
-        "bho",
-        "mah",
-        "sck",
-        "new",
-        "gom",
-        "sa",
-        "bgc",
+    "hi",
+    "mr",
+    "ne",
+    "bh",
+    "mai",
+    "ang",
+    "bho",
+    "mah",
+    "sck",
+    "new",
+    "gom",
+    "sa",
+    "bgc",
 ]
 
 
@@ -131,19 +131,20 @@ def get_model_params(lang, config):
         dict_file = params.get('dict')
         return det, rec, dict_file
     else:
-        raise Exception (f'Language {lang} not supported')
+        raise Exception(f'Language {lang} not supported')
 
 
 root_dir = os.path.join(Path(__file__).resolve().parent.parent, 'utils')
 
 
 class PytorchPaddleOCR(TextSystem):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, weights_folder, *args, **kwargs):
         parser = utility.init_args()
         args = parser.parse_args(args)
 
         self.lang = kwargs.get('lang', 'ch')
-        self.enable_merge_det_boxes = kwargs.get("enable_merge_det_boxes", True)
+        self.enable_merge_det_boxes = kwargs.get(
+            "enable_merge_det_boxes", True)
 
         device = get_device()
         if device == 'cpu' and self.lang in ['ch', 'ch_server', 'japan', 'chinese_cht']:
@@ -163,19 +164,24 @@ class PytorchPaddleOCR(TextSystem):
         else:
             pass
 
-        models_config_path = os.path.join(root_dir, 'pytorchocr', 'utils', 'resources', 'models_config.yml')
+        models_config_path = os.path.join(
+            root_dir, 'pytorchocr', 'utils', 'resources', 'models_config.yml')
         with open(models_config_path) as file:
             config = yaml.safe_load(file)
+            print(self.lang)
             det, rec, dict_file = get_model_params(self.lang, config)
-        ocr_models_dir = ModelPath.pytorch_paddle
+        ocr_models_dir = weights_folder
 
         det_model_path = f"{ocr_models_dir}/{det}"
-        det_model_path = os.path.join(auto_download_and_get_model_root_path(det_model_path), det_model_path)
+        det_model_path = os.path.join(
+            auto_download_and_get_model_root_path(det_model_path), det_model_path)
         rec_model_path = f"{ocr_models_dir}/{rec}"
-        rec_model_path = os.path.join(auto_download_and_get_model_root_path(rec_model_path), rec_model_path)
+        rec_model_path = os.path.join(
+            auto_download_and_get_model_root_path(rec_model_path), rec_model_path)
         kwargs['det_model_path'] = det_model_path
         kwargs['rec_model_path'] = rec_model_path
-        kwargs['rec_char_dict_path'] = os.path.join(root_dir, 'pytorchocr', 'utils', 'resources', 'dict', dict_file)
+        kwargs['rec_char_dict_path'] = os.path.join(
+            root_dir, 'pytorchocr', 'utils', 'resources', 'dict', dict_file)
         kwargs['rec_batch_num'] = 6
 
         kwargs['device'] = device
@@ -210,7 +216,8 @@ class PytorchPaddleOCR(TextSystem):
                     if not dt_boxes and not rec_res:
                         ocr_res.append(None)
                         continue
-                    tmp_res = [[box.tolist(), res] for box, res in zip(dt_boxes, rec_res)]
+                    tmp_res = [[box.tolist(), res]
+                               for box, res in zip(dt_boxes, rec_res)]
                     ocr_res.append(tmp_res)
                 return ocr_res
             elif det and not rec:
@@ -237,7 +244,8 @@ class PytorchPaddleOCR(TextSystem):
                     if not isinstance(img, list):
                         img = preprocess_image(img)
                         img = [img]
-                    rec_res, elapse = self.text_recognizer(img, tqdm_enable=tqdm_enable, tqdm_desc=tqdm_desc)
+                    rec_res, elapse = self.text_recognizer(
+                        img, tqdm_enable=tqdm_enable, tqdm_desc=tqdm_desc)
                     # logger.debug("rec_res num  : {}, elapsed : {}".format(len(rec_res), elapse))
                     ocr_res.append(rec_res)
                 return ocr_res
@@ -285,6 +293,7 @@ class PytorchPaddleOCR(TextSystem):
 
         return filter_boxes, filter_rec_res
 
+
 if __name__ == '__main__':
     pytorch_paddle_ocr = PytorchPaddleOCR()
     img = cv2.imread("/Users/myhloli/Downloads/screenshot-20250326-194348.png")
@@ -296,5 +305,3 @@ if __name__ == '__main__':
         tmp_res = [[box.tolist(), res] for box, res in zip(dt_boxes, rec_res)]
         ocr_res.append(tmp_res)
     print(ocr_res)
-
-
